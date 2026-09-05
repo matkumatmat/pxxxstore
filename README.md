@@ -1,87 +1,98 @@
-# pxxxstore
+# pxxxstore — encrypted vault for humans
 
-A minimal CLI password manager written in Rust. Credentials are stored in a single encrypted vault protected by a passphrase.
+<p>
+  <img src="https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white" />
+  <img src="https://img.shields.io/badge/edition-2024-black?style=flat" />
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat" />
+  <img src="https://img.shields.io/badge/crypto-Argon2%20%7C%20ChaCha20--Poly1305-blue?style=flat" />
+  <img src="https://img.shields.io/github/stars/matkumatmat/pxxxstore?style=flat&label=stars" />
+</p>
+
+> **No cloud. One file. Your passphrase is the key.**
+
+A minimal **Rust CLI password manager** — single encrypted vault in your OS config directory, protected by a master passphrase. Built for Arch Linux, works everywhere.
+
+---
 
 ## Features
 
-- Encrypted vault file stored in your OS config directory
-- Argon2id key derivation (KDF)
-- ChaCha20-Poly1305 authenticated encryption
-- Passphrase is never written to disk, prompted via stdin
-- Subcommands: `init`, `add`, `list`, `get`, `update`, `delete`
+- **One vault, one file** — `x.bin` in OS config dir
+- **Argon2id** key derivation + **ChaCha20-Poly1305** AEAD
+- **Zero disk leaks** — passphrase never written, read via `rpassword` hidden prompt
+- **Atomic writes** — temp file + rename, never half-written
+- **Simple UX** — `init / add / list / get / update / delete`
+
+## Quick start
+
+```sh
+cargo build --release
+./target/release/pxxxstore init
+pxxxstore add --src github.com --id matkumatmat --pass "s3cr3t"
+pxxxstore list
+pxxxstore get github.com
+```
 
 ## Build
 
 ```sh
 cargo build --release
+# binary at target/release/pxxxstore
 ```
-
-The binary will be at `target/release/pxxxstore`.
 
 ## Usage
 
-Initialize the vault (creates the config directory and vault file):
+**Init**
 
 ```sh
 pxxxstore init
+# creates ~/.config/pxxxstore/x.bin  (Linux)
+# or ~/Library/Application Support/pxxxstore/x.bin (macOS)
+# or %APPDATA%\pxxxstore\x.bin (Windows)
 ```
 
-Add an entry:
+**Add / List / Get / Update / Delete**
 
 ```sh
 pxxxstore add --src github.com --id username --pass "secret"
-```
-
-List entries (ids only, no passwords):
-
-```sh
 pxxxstore list
-```
-
-Get a single entry (id, password, timestamps):
-
-```sh
 pxxxstore get github.com
-```
-
-Update an entry:
-
-```sh
 pxxxstore update --src github.com --id newuser --pass "newpass"
-```
-
-Delete an entry:
-
-```sh
 pxxxstore delete github.com
 ```
 
 ## How it works
 
-The vault is stored at:
+```
+vault path:
+  Linux   → ~/.config/pxxxstore/x.bin
+  macOS   → ~/Library/Application Support/pxxxstore/x.bin
+  Windows → %APPDATA%\pxxxstore\x.bin
 
-- Linux: `~/.config/pxxxstore/x.bin`
-- macOS: `~/Library/Application Support/pxxxstore/x.bin`
-- Windows: `%APPDATA%\pxxxstore\x.bin`
+file layout: [salt:16][nonce:12][ciphertext]
 
-File format: `[salt 16 bytes] + [nonce 12 bytes] + [ciphertext]`
+salt (random) ──► Argon2id(passphrase, salt) ──► key
+vault JSON ──► ChaCha20-Poly1305(key, nonce) ──► ciphertext
+```
 
-- A random salt is generated per encryption
-- A key is derived from your passphrase with Argon2id
-- The vault JSON is encrypted with ChaCha20-Poly1305
-- Writes go to a temp file first, then rename for atomic replacement
+- Random 16-byte salt per encryption
+- Argon2id KDF from your passphrase
+- JSON encrypted with ChaCha20-Poly1305
+- Write to temp file → `rename` for atomic replace
 
 ## Tech stack
 
-- Rust 2024 edition
-- clap (CLI parsing)
-- argon2, chacha20poly1305 (cryptography)
-- serde / serde_json (serialization)
-- chrono (timestamps)
-- rpassword (hidden passphrase input)
+- **Rust 2024**, `clap` (derive CLI), `dirs` (config dir)
+- `argon2` + `chacha20poly1305` (crypto)
+- `serde` / `serde_json` + `chrono` (timestamps)
+- `rpassword` (hidden input), `zeroize` (mem wipe), `anyhow`
 
 ## Security notes
 
-- The master passphrase is the only key; losing it means the vault cannot be recovered
-- The passphrase is never stored, only used to derive the encryption key
+- Master passphrase = only key. Lose it = vault unrecoverable
+- Passphrase never stored, only used to derive key
+- Salt + nonce are stored, ciphertext is authenticated — tampering is detected
 - Use a strong, unique passphrase
+
+## License
+
+MIT — see `LICENSE`
