@@ -49,6 +49,16 @@ impl Vault {
     }
 }
 
+fn prompt_passphrase(prompt: &str) -> Result<String, Box<dyn std::error::Error>> {
+    // Allow non-interactive testing via env var
+    if let Ok(p) = std::env::var("PXXXSTORE_PASSPHRASE") {
+        if !p.is_empty() {
+            return Ok(p);
+        }
+    }
+    Ok(rpassword::prompt_password(prompt)?)
+}
+
 pub fn load_vault(
     cfg : &AppCfg
 ) -> Result <(Vault, String), Box<dyn std::error::Error>>{
@@ -57,7 +67,7 @@ pub fn load_vault(
                 .into())
     };
     let enc = fs::read(&cfg.vault_path)?;
-    let passphrase = rpassword::prompt_password("enter the passphrase : ")?;
+    let passphrase = prompt_passphrase("enter the passphrase : ")?;
     let plaintxt = crypto::decrypt(&enc, &passphrase)?;
     let vault : Vault = serde_json::from_slice(&plaintxt)?;
     Ok((vault,passphrase))
@@ -103,8 +113,12 @@ pub fn init_vault(config: &AppCfg) -> Result<(), Box<dyn std::error::Error>> {
 
     if !config.vault_path.exists() {
         println!("🔐Set a passphrase:");
-        let passphrase = rpassword::prompt_password("New passphrase: ")?;
-        let confirm = rpassword::prompt_password("Confirm passphrase: ")?;
+        let passphrase = prompt_passphrase("New passphrase: ")?;
+        let confirm = if std::env::var("PXXXSTORE_PASSPHRASE").is_ok() {
+            passphrase.clone()
+        } else {
+            prompt_passphrase("Confirm passphrase: ")?
+        };
         if passphrase != confirm {
             return Err("Passphrases do not match".into());
         }

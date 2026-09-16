@@ -38,8 +38,8 @@ pub enum Commands{
     /// Delete existed Entry List
     Delete {
         src : String,
-    }
-
-
+    },
+    /// Launch interactive TUI (ratatui)
+    Tui,
 
 }

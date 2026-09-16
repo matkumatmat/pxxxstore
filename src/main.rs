@@ -2,6 +2,7 @@ mod cli;
 mod cfg;
 mod domain;
 mod crypto;
+mod tui;
 
 use clap::Parser;
 use cli::{Cli,Commands};
@@ -14,7 +15,10 @@ use domain::init_vault;
 fn main()-> Result<(), Box<dyn std::error::Error>>{
     let cli = Cli::parse();
     let cfg = cfg::AppCfg::new("x.bin");
-    println!("[ Msg ]: {} - pwd stored ", cfg.app_name);
+    // suppress noisy msg for TUI (it uses alternate screen)
+    if !matches!(cli.command, Commands::Tui) {
+        println!("[ Msg ]: {} - pwd stored ", cfg.app_name);
+    }
     match cli.command {
         Commands::Init => {
             init_vault(&cfg)?;
@@ -84,6 +88,12 @@ fn main()-> Result<(), Box<dyn std::error::Error>>{
                 save_vault(&vault, &cfg, &passphrase)?;
                 println!("[ Msg ]: Deleted: {}", src);
             }
+        }
+
+        Commands::Tui => {
+            let (vault, passphrase) = load_vault(&cfg)?;
+            // drop the initial println noise before entering alternate screen
+            tui::run(cfg, vault, passphrase)?;
         }
     }
     Ok(())

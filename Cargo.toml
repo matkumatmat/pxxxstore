@@ -17,3 +17,10 @@ anyhow = "1.0"
 rpassword = "7.3"
 zeroize = "1.8"
 fs = "0.0.5"
+ratatui = "0.29"
+crossterm = "0.28"
+arboard = { version = "3.4", optional = true }
+
+[features]
+default = ["clipboard"]
+clipboard = ["arboard"]
